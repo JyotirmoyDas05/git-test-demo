@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="slides-format" content="viewport">
+    <title>Git & GitHub — Master Version Control</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <style type="text/tailwindcss">
+        @theme {
+            --color-bg: #0A0A0A;
+            --color-bg-deep: #050505;
+            --color-surface: #111111;
+            --color-text: #E8FFE8;
+            --color-text-secondary: #A8D8A8;
+            --color-text-muted: #5A8A5A;
+            --color-accent-1: #00FF41;
+            --color-accent-2: #00CC33;
+            --color-accent-3: #FFA500;
+            --color-glass-bg: rgba(0,255,65,0.04);
+            --color-glass-border: rgba(0,255,65,0.12);
+            --color-vignette: rgba(0,0,0,0.55);
+            --font-display: 'JetBrains Mono', monospace;
+            --font-body: 'Inter', sans-serif;
+        }
+    </style>
+
+    <style>
+        :root {
+            --color-bg: #0A0A0A;
+            --color-text: #E8FFE8;
+            --glow-color-rgb: 0,255,65;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { background: var(--color-bg); margin: 0; }
+        body { font-family: 'Inter', sans-serif; color: var(--color-text); overflow: hidden; height: 100vh; width: 100vw; }
+        .deck { width: 100vw; height: 100vh; position: relative; }
+        .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--color-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: scale(0.95); transition: opacity 0.7s ease, transform 0.7s ease; pointer-events: none; overflow: hidden; }
+        .slide.active { opacity: 1; transform: scale(1); pointer-events: all; }
+        .slide > .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: clamp(1.5rem, 4vw, 3.5rem); }
+        .nav-controls { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; z-index: 100; background: rgba(0,255,65,0.04); backdrop-filter: blur(10px); padding: 10px 24px; border-radius: 40px; border: 1px solid rgba(0,255,65,0.12); }
+        .nav-btn { width: 40px; height: 40px; border: none; background: rgba(0,255,65,0.06); color: #00FF41; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.3s; }
+        .nav-btn:hover { background: rgba(0,255,65,0.15); }
+        .slide-dots { display: flex; gap: 8px; }
+        .slide-dots .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(0,255,65,0.15); cursor: pointer; transition: background 0.3s, transform 0.3s; }
+        .slide-dots .dot.active { background: #00FF41; transform: scale(1.3); }
+        .slide-counter { font-size: 0.82rem; color: #5A8A5A; min-width: 80px; text-align: right; font-family: 'JetBrains Mono', monospace; white-space: nowrap; margin-left: 4px; opacity: 0.8; }
+        .reveal { opacity: 0; transform: translateY(20px); }
+
+        /* Glow effects */
+        .text-glow { text-shadow: 0 0 20px rgba(0,255,65,0.6), 0 0 40px rgba(0,255,65,0.25); }
+        .stat-glow { text-shadow: 0 0 30px rgba(0,255,65,0.7), 0 0 60px rgba(0,255,65,0.3); }
+        @keyframes glow-pulse {
+            0%, 100% { text-shadow: 0 0 20px rgba(0,255,65,0.6), 0 0 40px rgba(0,255,65,0.25); }
+            50% { text-shadow: 0 0 35px rgba(0,255,65,0.9), 0 0 70px rgba(0,255,65,0.4); }
+        }
+        .glow-pulse { animation: glow-pulse 2.5s ease-in-out infinite; }
+
+        /* Gradient mesh */
+        @keyframes float-slow { 0% { transform: translate(0,0) scale(1); } 25% { transform: translate(60px,-50px) scale(1.12); } 50% { transform: translate(-40px,40px) scale(0.9); } 75% { transform: translate(50px,20px) scale(1.08); } 100% { transform: translate(0,0) scale(1); } }
+        @keyframes float-drift { 0% { transform: translate(0,0) scale(1) rotate(0deg); } 33% { transform: translate(-50px,-60px) scale(1.15) rotate(3deg); } 66% { transform: translate(40px,30px) scale(0.88) rotate(-2deg); } 100% { transform: translate(0,0) scale(1) rotate(0deg); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+        .gradient-mesh { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob { position: absolute; border-radius: 50%; filter: blur(80px); animation: float-slow 10s ease-in-out infinite; }
+        .blob:nth-child(2) { animation: float-drift 14s ease-in-out infinite; }
+        .blob:nth-child(3) { animation: float-slow 18s ease-in-out infinite reverse; }
+
+        /* Noise + vignette */
+        .slide::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); background-repeat: repeat; background-size: 256px 256px; opacity: 0.04; mix-blend-mode: overlay; }
+        .slide::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at center, transparent 50%, var(--color-vignette) 100%); }
+
+        /* Scanline effect */
+        @keyframes scanlines { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+        .scanlines { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.015) 2px, rgba(0,255,65,0.015) 4px); }
+
+        /* Terminal cursor */
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .cursor { display: inline-block; width: 10px; height: 1.1em; background: #00FF41; vertical-align: text-bottom; animation: blink 1s step-end infinite; margin-left: 2px; }
+
+        /* Pulsing border */
+        @keyframes border-pulse { 0%, 100% { border-color: rgba(0,255,65,0.12); } 50% { border-color: rgba(0,255,65,0.35); } }
+        .border-pulse { animation: border-pulse 2s ease-in-out infinite; }
+
+        /* Bar fills */
+        .bar-fill { height: 100%; border-radius: 4px; width: 0%; transition: width 0.8s ease; }
+
+        /* Slide-specific */
+        .cmd-block { background: rgba(0,255,65,0.04); border: 1px solid rgba(0,255,65,0.15); border-radius: 8px; padding: 0.6rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: clamp(0.7rem, 1.2vw, 0.9rem); color: #00FF41; margin-bottom: 0.4rem; }
+        .cmd-prefix { color: #5A8A5A; }
+        .cmd-comment { color: #3A6A3A; font-style: italic; }
+        .stage-arrow { color: #00FF41; font-size: 1.3rem; text-align: center; }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; } }
+    </style>
+</head>
+<body>
+
+<div class="mouse-spotlight" style="position:fixed;inset:0;z-index:99;pointer-events:none;"></div>
+
+<div class="deck">
+
+    <!-- SLIDE 1: TITLE -->
+    <div class="slide slide-1 active" data-slide="1">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:500px;height:500px;top:-100px;right:-100px;background:#00FF41;opacity:0.10;"></div>
+            <div class="blob" style="width:320px;height:320px;bottom:-80px;left:-60px;background:#00CC33;opacity:0.08;"></div>
+            <div class="blob" style="width:200px;height:200px;top:40%;left:10%;background:#FFA500;opacity:0.06;"></div>
+        </div>
+        <canvas class="particle-canvas" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="scanlines"></div>
+    <div class="content text-center">
+            <div style="position:relative; width:150px; height:120px; margin: 0 auto 1.5rem auto; animation:float 3s ease-in-out infinite;" class="reveal">
+                <!-- GitHub logo peeking from the back right -->
+                <img src="https://cdn.simpleicons.org/github/E8FFE8" alt="GitHub" style="position:absolute; top:0; right:0; width:90px; height:90px; opacity:0.9; transform:rotate(12deg); transition:all 0.3s ease; z-index:1; filter:drop-shadow(0 0 15px rgba(232,255,232,0.15));" onmouseover="this.style.transform='rotate(18deg) scale(1.1) translateY(-8px)'; this.style.opacity='1'; this.style.zIndex='3';" onmouseout="this.style.transform='rotate(12deg)'; this.style.opacity='0.9'; this.style.zIndex='1';">
+                
+                <!-- Git logo on the front left -->
+                <img src="https://cdn.simpleicons.org/git/F05032" alt="Git" style="position:absolute; bottom:0; left:0; width:95px; height:95px; transform:rotate(-8deg); transition:all 0.3s ease; z-index:2; filter:drop-shadow(0 10px 20px rgba(240,80,50,0.4));" onmouseover="this.style.transform='rotate(-12deg) scale(1.05) translateY(-5px)';" onmouseout="this.style.transform='rotate(-8deg)';">
+            </div>
+            <h1 class="font-display font-black tracking-tight mb-3 reveal" style="font-size:clamp(2.8rem,6.5vw,5.2rem);background:linear-gradient(135deg,#00FF41,#A8D8A8,#00FF41);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+                Git & GitHub
+            </h1>
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:clamp(0.85rem,1.5vw,1.1rem);color:#5A8A5A;letter-spacing:6px;text-transform:uppercase;margin-bottom:1.5rem;">
+                Master Version Control
+            </p>
+            <div class="reveal" style="display:inline-flex;align-items:center;gap:0.5rem;background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.18);border-radius:999px;padding:0.5rem 1.4rem;">
+                <span style="font-family:'JetBrains Mono',monospace;color:#5A8A5A;font-size:0.8rem;">$</span>
+                <span style="font-family:'JetBrains Mono',monospace;color:#A8D8A8;font-size:0.85rem;">git init your-future</span>
+                <span class="cursor"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 2: AGENDA -->
+    <div class="slide slide-2" data-slide="2">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:350px;height:350px;top:-80px;right:-80px;background:#00FF41;opacity:0.07;"></div>
+            <div class="blob" style="width:250px;height:250px;bottom:-60px;left:-40px;background:#00CC33;opacity:0.05;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// Session Roadmap</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.6rem);color:#00FF41;margin-bottom:1.5rem;">What We'll Cover</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-left:3px solid #00FF41;border-radius:8px;padding:0.9rem 1.1rem;display:flex;align-items:center;gap:0.8rem;">
+                    <span style="font-size:1.5rem;"><i class="ph-duotone ph-fire"></i></span>
+                    <div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#E8FFE8;font-weight:600;">Why Version Control?</div>
+                        <div style="font-size:0.75rem;color:#5A8A5A;">The problem Git solves</div>
+                    </div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-left:3px solid #00CC33;border-radius:8px;padding:0.9rem 1.1rem;display:flex;align-items:center;gap:0.8rem;">
+                    <span style="font-size:1.5rem;"><i class="ph-duotone ph-brain"></i></span>
+                    <div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#E8FFE8;font-weight:600;">Core Concepts</div>
+                        <div style="font-size:0.75rem;color:#5A8A5A;">Repos, commits, branches</div>
+                    </div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-left:3px solid #FFA500;border-radius:8px;padding:0.9rem 1.1rem;display:flex;align-items:center;gap:0.8rem;">
+                    <span style="font-size:1.5rem;"><i class="ph-duotone ph-lightning"></i></span>
+                    <div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#E8FFE8;font-weight:600;">Git Workflow</div>
+                        <div style="font-size:0.75rem;color:#5A8A5A;">init → add → commit → push</div>
+                    </div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-left:3px solid #00FF41;border-radius:8px;padding:0.9rem 1.1rem;display:flex;align-items:center;gap:0.8rem;">
+                    <span style="font-size:1.5rem;"><i class="ph-duotone ph-git-branch"></i></span>
+                    <div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#E8FFE8;font-weight:600;">Branching & Merging</div>
+                        <div style="font-size:0.75rem;color:#5A8A5A;">Parallel development</div>
+                    </div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-left:3px solid #00CC33;border-radius:8px;padding:0.9rem 1.1rem;display:flex;align-items:center;gap:0.8rem;">
+                    <span style="font-size:1.5rem;"><i class="ph-duotone ph-github-logo"></i></span>
+                    <div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#E8FFE8;font-weight:600;">GitHub Collaboration</div>
+                        <div style="font-size:0.75rem;color:#5A8A5A;">PRs, Issues, Forks</div>
+                    </div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-left:3px solid #FFA500;border-radius:8px;padding:0.9rem 1.1rem;display:flex;align-items:center;gap:0.8rem;">
+                    <span style="font-size:1.5rem;"><i class="ph-duotone ph-rocket-launch"></i></span>
+                    <div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#E8FFE8;font-weight:600;">Hands-On Practice</div>
+                        <div style="font-size:0.75rem;color:#5A8A5A;">Live demo + your first push</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 3: THE PROBLEM -->
+    <div class="slide slide-3" data-slide="3">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:400px;height:400px;top:-60px;left:-80px;background:#FFA500;opacity:0.08;"></div>
+            <div class="blob" style="width:280px;height:280px;bottom:-60px;right:-40px;background:#00FF41;opacity:0.06;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <canvas class="particle-canvas-ambient" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// The Chaos Before Git</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#FFA500;margin-bottom:1.2rem;">Sound Familiar?😅</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem;">
+                <div class="reveal" style="background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.2);border-radius:8px;padding:1rem 1.2rem;">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#FFA500;margin-bottom:0.6rem;"><i class="ph-duotone ph-folder"></i> Your Project Folder</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#A8D8A8;line-height:1.9;">
+                        project_v1.zip<br>
+                        project_final_v2.zip<br>
+                        project_FINAL.zip<br>
+                        project_final_forreal.zip<br>
+                        project_FINAL_v3.zip<br>
+                        <span style="color:#FF6B6B;">project_this_one.zip ← ???</span>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.8rem;">
+                    <div class="reveal" style="background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.15);border-radius:8px;padding:0.8rem 1rem;font-size:0.82rem;color:#FF8A8A;">
+                        <i class="ph-duotone ph-x-circle"></i> "Who broke the code?" — impossible to know
+                    </div>
+                    <div class="reveal" style="background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.15);border-radius:8px;padding:0.8rem 1rem;font-size:0.82rem;color:#FF8A8A;">
+                        <i class="ph-duotone ph-x-circle"></i> 2 teammates edit same file simultaneously
+                    </div>
+                    <div class="reveal" style="background:rgba(255,0,0,0.06);border:1px solid rgba(255,0,0,0.15);border-radius:8px;padding:0.8rem 1rem;font-size:0.82rem;color:#FF8A8A;">
+                        <i class="ph-duotone ph-x-circle"></i> "It worked yesterday" — can't go back
+                    </div>
+                    <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.2);border-radius:8px;padding:0.8rem 1rem;font-size:0.82rem;color:#A8D8A8;">
+                        <i class="ph-duotone ph-check-circle"></i> Git solves all of this — permanently
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 4: WHAT IS GIT + STATS -->
+    <div class="slide slide-4" data-slide="4">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:450px;height:450px;top:-100px;right:-100px;background:#00FF41;opacity:0.09;"></div>
+            <div class="blob" style="width:300px;height:300px;bottom:-80px;left:-60px;background:#00CC33;opacity:0.06;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// What is Git?</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#00FF41;margin-bottom:1.2rem;">Distributed Version Control</h2>
+            <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:1.2rem;">
+                <div>
+                    <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-radius:8px;padding:1rem 1.2rem;margin-bottom:0.8rem;">
+                        <div style="font-size:0.85rem;color:#A8D8A8;line-height:1.8;">
+                            <div>🔹 Created by <strong style="color:#00FF41;">Linus Torvalds</strong> in <strong style="color:#00FF41;">April 2005</strong> for the Linux kernel</div>
+                            <div>🔹 <strong style="color:#00FF41;">Distributed</strong> — every developer has a full copy of history</div>
+                            <div>🔹 Tracks <strong style="color:#00FF41;">every change</strong> ever made to every file</div>
+                            <div>🔹 Works <strong style="color:#00FF41;">offline</strong> — no internet needed to commit</div>
+                            <div>🔹 Free, open-source, and <strong style="color:#00FF41;">blazing fast</strong></div>
+                        </div>
+                    </div>
+                    <div class="reveal" style="background:rgba(0,255,65,0.03);border:1px solid rgba(0,255,65,0.1);border-radius:8px;padding:0.8rem 1rem;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#5A8A5A;margin-bottom:0.3rem;"># The key insight</div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#A8D8A8;">Git = <span style="color:#00FF41;">snapshot database</span> of your project over time</div>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.8rem;">
+                    <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.18);border-radius:10px;padding:1rem;text-align:center;">
+                        <div class="stat-glow glow-pulse" style="font-family:'JetBrains Mono',monospace;font-size:2.2rem;font-weight:800;color:#00FF41;" data-count="96" data-suffix="%">0%</div>
+                        <div style="font-size:0.72rem;color:#5A8A5A;margin-top:0.2rem;">developers have used Git</div>
+                    </div>
+                    <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.18);border-radius:10px;padding:1rem;text-align:center;">
+                        <div class="stat-glow" style="font-family:'JetBrains Mono',monospace;font-size:2.2rem;font-weight:800;color:#00FF41;" data-count="180" data-suffix="M+">0M+</div>
+                        <div style="font-size:0.72rem;color:#5A8A5A;margin-top:0.2rem;">developers on GitHub (2026)</div>
+                    </div>
+                    <div class="reveal" style="background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.18);border-radius:10px;padding:1rem;text-align:center;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:2.2rem;font-weight:800;color:#FFA500;" data-count="630" data-suffix="M">0M</div>
+                        <div style="font-size:0.72rem;color:#5A8A5A;margin-top:0.2rem;">repositories on GitHub</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 5: GIT vs GITHUB -->
+    <div class="slide slide-5" data-slide="5">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:380px;height:380px;top:-80px;left:-60px;background:#00FF41;opacity:0.07;"></div>
+            <div class="blob" style="width:280px;height:280px;bottom:-60px;right:-40px;background:#FFA500;opacity:0.06;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// The Distinction</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#E8FFE8;margin-bottom:1.4rem;">Git <span style="color:#5A8A5A;">vs</span> GitHub</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;">
+                <div class="reveal" style="background:rgba(0,255,65,0.05);border:2px solid rgba(0,255,65,0.25);border-radius:12px;padding:1.4rem;">
+                    <div style="display:flex;align-items:center;gap:0.7rem;margin-bottom:1rem;">
+                        <img src="https://cdn.simpleicons.org/git/F05032" alt="Git logo" width="36" height="36" style="flex-shrink:0;display:inline-block;">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:#00FF41;">Git</span>
+                    </div>
+                    <div style="font-size:0.83rem;color:#A8D8A8;line-height:1.9;">
+                        <div>• A <strong style="color:#00FF41;">tool</strong> installed on your machine</div>
+                        <div>• Runs on the <strong style="color:#00FF41;">command line</strong></div>
+                        <div>• Tracks changes <strong style="color:#00FF41;">locally</strong></div>
+                        <div>• Works <strong style="color:#00FF41;">offline</strong></div>
+                        <div>• Created <strong style="color:#00FF41;">2005</strong> by Linus Torvalds</div>
+                        <div>• Open source, <strong style="color:#00FF41;">free forever</strong></div>
+                    </div>
+                    <div style="margin-top:1rem;background:rgba(0,255,65,0.06);border-radius:6px;padding:0.5rem 0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#00FF41;">$ git —version</div>
+                </div>
+                <div class="reveal" style="background:rgba(255,165,0,0.05);border:2px solid rgba(255,165,0,0.25);border-radius:12px;padding:1.4rem;">
+                    <div style="display:flex;align-items:center;gap:0.7rem;margin-bottom:1rem;">
+                        <img src="https://cdn.simpleicons.org/github/ffffff" alt="GitHub logo" width="36" height="36" style="flex-shrink:0;display:inline-block;">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:#FFA500;">GitHub</span>
+                    </div>
+                    <div style="font-size:0.83rem;color:#A8D8A8;line-height:1.9;">
+                        <div>• A <strong style="color:#FFA500;">platform</strong> hosted on the web</div>
+                        <div>• Accessible via <strong style="color:#FFA500;">browser or CLI</strong></div>
+                        <div>• Stores repos <strong style="color:#FFA500;">in the cloud</strong></div>
+                        <div>• Requires <strong style="color:#FFA500;">internet</strong></div>
+                        <div>• Founded <strong style="color:#FFA500;">2008</strong>, acquired by Microsoft 2018</div>
+                        <div>• Free tier + paid plans</div>
+                    </div>
+                    <div style="margin-top:1rem;background:rgba(255,165,0,0.06);border-radius:6px;padding:0.5rem 0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#FFA500;">github.com/your-username</div>
+                </div>
+            </div>
+            <div class="reveal" style="text-align:center;margin-top:1rem;font-size:0.82rem;color:#5A8A5A;">
+                <i class="ph-duotone ph-key"></i> Think of it this way: <span style="color:#00FF41;">Git</span> is the engine, <span style="color:#FFA500;">GitHub</span> is the garage where you park & share
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 6: CORE CONCEPTS -->
+    <div class="slide slide-6" data-slide="6">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:420px;height:420px;top:-100px;right:-80px;background:#00FF41;opacity:0.08;"></div>
+            <div class="blob" style="width:280px;height:280px;bottom:-60px;left:-40px;background:#00CC33;opacity:0.05;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// Building Blocks</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#00FF41;margin-bottom:1.2rem;">4 Core Concepts</h2>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;">
+                <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.18);border-radius:10px;padding:1rem 0.9rem;text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-package"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;color:#00FF41;margin-bottom:0.5rem;">Repository</div>
+                    <div style="font-size:0.75rem;color:#A8D8A8;line-height:1.6;">Your project folder tracked by Git. Contains all files + their <strong style="color:#00FF41;">entire history</strong>.</div>
+                    <div style="margin-top:0.7rem;font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:#5A8A5A;">Local or Remote</div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.18);border-radius:10px;padding:1rem 0.9rem;text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-camera"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;color:#00FF41;margin-bottom:0.5rem;">Commit</div>
+                    <div style="font-size:0.75rem;color:#A8D8A8;line-height:1.6;">A <strong style="color:#00FF41;">snapshot</strong> of your project at a point in time. Has a unique ID (hash) + message.</div>
+                    <div style="margin-top:0.7rem;font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:#5A8A5A;">git commit -m "..."</div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.18);border-radius:10px;padding:1rem 0.9rem;text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-git-branch"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;color:#00FF41;margin-bottom:0.5rem;">Branch</div>
+                    <div style="font-size:0.75rem;color:#A8D8A8;line-height:1.6;">A <strong style="color:#00FF41;">parallel timeline</strong>. Work on features without touching the main code. Default: <code style="color:#FFA500;">main</code>.</div>
+                    <div style="margin-top:0.7rem;font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:#5A8A5A;">git branch feature</div>
+                </div>
+                <div class="reveal" style="background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.18);border-radius:10px;padding:1rem 0.9rem;text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-cloud"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;color:#FFA500;margin-bottom:0.5rem;">Remote</div>
+                    <div style="font-size:0.75rem;color:#A8D8A8;line-height:1.6;">The version of your repo <strong style="color:#FFA500;">on GitHub</strong>. Push to share, pull to sync with teammates.</div>
+                    <div style="margin-top:0.7rem;font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:#5A8A5A;">origin / upstream</div>
+                </div>
+            </div>
+            <div class="reveal" style="margin-top:1rem;background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.1);border-radius:8px;padding:0.7rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#5A8A5A;">
+                <i class="ph-duotone ph-lightbulb-filament"></i> Bonus: <span style="color:#A8D8A8;">Working Directory</span> → <span style="color:#00FF41;">Staging Area (Index)</span> → <span style="color:#FFA500;">Commit History</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 7: GIT WORKFLOW -->
+    <div class="slide slide-7" data-slide="7">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:400px;height:400px;top:-80px;right:-60px;background:#00FF41;opacity:0.08;"></div>
+            <div class="blob" style="width:260px;height:260px;bottom:-50px;left:-40px;background:#FFA500;opacity:0.06;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <canvas class="particle-canvas-ambient" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// The Daily Loop</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#00FF41;margin-bottom:1.2rem;">Git Workflow</h2>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.5rem;align-items:center;margin-bottom:1rem;">
+                <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.2);border-radius:10px;padding:0.8rem;text-align:center;">
+                    <div style="font-size:1.6rem;margin-bottom:0.4rem;"><i class="ph-duotone ph-folders"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:#00FF41;font-weight:700;">git init</div>
+                    <div style="font-size:0.65rem;color:#5A8A5A;margin-top:0.3rem;">Create repo</div>
+                </div>
+                <div class="reveal stage-arrow">→</div>
+                <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.2);border-radius:10px;padding:0.8rem;text-align:center;">
+                    <div style="font-size:1.6rem;margin-bottom:0.4rem;"><i class="ph-duotone ph-plus-circle"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:#00FF41;font-weight:700;">git add</div>
+                    <div style="font-size:0.65rem;color:#5A8A5A;margin-top:0.3rem;">Stage changes</div>
+                </div>
+                <div class="reveal stage-arrow">→</div>
+                <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.2);border-radius:10px;padding:0.8rem;text-align:center;">
+                    <div style="font-size:1.6rem;margin-bottom:0.4rem;"><i class="ph-duotone ph-camera"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:#00FF41;font-weight:700;">git commit</div>
+                    <div style="font-size:0.65rem;color:#5A8A5A;margin-top:0.3rem;">Save snapshot</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;align-items:start;margin-bottom:1rem;">
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-radius:8px;padding:0.8rem;">
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git init</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git status</div>
+                    <div style="font-size:0.7rem;color:#5A8A5A;margin-top:0.3rem;">Start tracking your folder</div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-radius:8px;padding:0.8rem;">
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git add .</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git add index.html</div>
+                    <div style="font-size:0.7rem;color:#5A8A5A;margin-top:0.3rem;">Stage all or specific files</div>
+                </div>
+                <div class="reveal" style="background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.15);border-radius:8px;padding:0.8rem;">
+                    <div class="cmd-block" style="border-color:rgba(255,165,0,0.2);"><span class="cmd-prefix">$ </span>git push origin main</div>
+                    <div class="cmd-block" style="border-color:rgba(255,165,0,0.2);"><span class="cmd-prefix">$ </span>git pull</div>
+                    <div style="font-size:0.7rem;color:#5A8A5A;margin-top:0.3rem;">Sync with GitHub</div>
+                </div>
+            </div>
+            <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.1);border-radius:8px;padding:0.7rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#5A8A5A;">
+                <span style="color:#A8D8A8;">Pro tip:</span> <span style="color:#00FF41;">git status</span> is your best friend — run it constantly to see what's happening
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 8: BRANCHING -->
+    <div class="slide slide-8" data-slide="8">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:380px;height:380px;top:-80px;right:-80px;background:#00FF41;opacity:0.08;"></div>
+            <div class="blob" style="width:260px;height:260px;bottom:-60px;left:-40px;background:#00CC33;opacity:0.06;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// Parallel Development</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#00FF41;margin-bottom:1.2rem;">Branching & Merging</h2>
+            <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:1.2rem;">
+                <div>
+                    <!-- Visual branch diagram -->
+                    <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-radius:10px;padding:1rem;margin-bottom:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:2.2;">
+                        <div style="color:#5A8A5A;">main ──●──●──●──────────────────●  ← merge</div>
+                        <div style="color:#5A8A5A;padding-left:4.5rem;">│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↗</div>
+                        <div><span style="color:#5A8A5A;">feature&nbsp;</span><span style="color:#FFA500;">└──●──●──●──●</span></div>
+                        <div style="color:#5A8A5A;margin-top:0.3rem;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↑ your work, safely isolated</div>
+                    </div>
+                    <div class="reveal" style="display:flex;flex-direction:column;gap:0.5rem;">
+                        <div class="cmd-block"><span class="cmd-prefix">$ </span>git branch feature-login &nbsp;&nbsp;<span class="cmd-comment"># create branch</span></div>
+                        <div class="cmd-block"><span class="cmd-prefix">$ </span>git checkout feature-login &nbsp;<span class="cmd-comment"># switch to it</span></div>
+                        <div class="cmd-block"><span class="cmd-prefix">$ </span>git checkout -b new-feature &nbsp;<span class="cmd-comment"># create + switch</span></div>
+                        <div class="cmd-block"><span class="cmd-prefix">$ </span>git merge feature-login &nbsp;&nbsp;&nbsp;<span class="cmd-comment"># merge back</span></div>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.8rem;">
+                    <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.18);border-radius:10px;padding:1rem;text-align:center;">
+                        <div style="font-size:1.8rem;margin-bottom:0.3rem;"><i class="ph-duotone ph-shield-check"></i></div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;font-weight:700;color:#00FF41;">main is Sacred</div>
+                        <div style="font-size:0.72rem;color:#5A8A5A;margin-top:0.3rem;">Never commit directly to main in team projects</div>
+                    </div>
+                    <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.18);border-radius:10px;padding:1rem;text-align:center;">
+                        <div style="font-size:1.8rem;margin-bottom:0.3rem;"><i class="ph-duotone ph-lightning"></i></div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;font-weight:700;color:#00FF41;">Branches are Cheap</div>
+                        <div style="font-size:0.72rem;color:#5A8A5A;margin-top:0.3rem;">Create one per feature, bug fix, or experiment</div>
+                    </div>
+                    <div class="reveal" style="background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.18);border-radius:10px;padding:1rem;text-align:center;">
+                        <div style="font-size:1.8rem;margin-bottom:0.3rem;"><i class="ph-duotone ph-warning-octagon"></i></div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;font-weight:700;color:#FFA500;">Merge Conflicts</div>
+                        <div style="font-size:0.72rem;color:#5A8A5A;margin-top:0.3rem;">Git marks conflicts — you decide which change wins</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 9: GITHUB FEATURES -->
+    <div class="slide slide-9" data-slide="9">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:420px;height:420px;top:-100px;left:-80px;background:#FFA500;opacity:0.07;"></div>
+            <div class="blob" style="width:300px;height:300px;bottom:-60px;right:-40px;background:#00FF41;opacity:0.06;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <canvas class="particle-canvas-ambient" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// Collaborate Like a Pro</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#FFA500;margin-bottom:1.2rem;">GitHub Power Features</h2>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.9rem;">
+                <div class="reveal" style="background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.2);border-radius:10px;padding:1.1rem;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-git-pull-request"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:#FFA500;margin-bottom:0.4rem;">Pull Requests</div>
+                    <div style="font-size:0.78rem;color:#A8D8A8;line-height:1.7;">Propose changes from your branch. Teammates <strong style="color:#FFA500;">review, comment, request changes</strong> before merging into main.</div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.2);border-radius:10px;padding:1.1rem;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-bug"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:#00FF41;margin-bottom:0.4rem;">Issues</div>
+                    <div style="font-size:0.78rem;color:#A8D8A8;line-height:1.7;">Track bugs, feature requests, and tasks. Assign to team members, add labels, link to PRs. Project management built-in.</div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.2);border-radius:10px;padding:1.1rem;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-git-fork"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:#00FF41;margin-bottom:0.4rem;">Fork & Clone</div>
+                    <div style="font-size:0.78rem;color:#A8D8A8;line-height:1.7;"><strong style="color:#00FF41;">Fork</strong> = your own copy of someone's repo on GitHub. <strong style="color:#00FF41;">Clone</strong> = download a repo to your machine.</div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.2);border-radius:10px;padding:1.1rem;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-gear"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:#00FF41;margin-bottom:0.4rem;">GitHub Actions</div>
+                    <div style="font-size:0.78rem;color:#A8D8A8;line-height:1.7;">Automate workflows — test code on every push, deploy on merge. <strong style="color:#00FF41;">10.54B CPU minutes</strong> used in 2024.</div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.2);border-radius:10px;padding:1.1rem;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-file-text"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:#00FF41;margin-bottom:0.4rem;">README & Docs</div>
+                    <div style="font-size:0.78rem;color:#A8D8A8;line-height:1.7;">Markdown files shown on your repo homepage. First impression of your project — make it count! <i class="ph-duotone ph-pencil-simple"></i></div>
+                </div>
+                <div class="reveal" style="background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.2);border-radius:10px;padding:1.1rem;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;"><i class="ph-duotone ph-globe"></i></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:#FFA500;margin-bottom:0.4rem;">GitHub Pages</div>
+                    <div style="font-size:0.78rem;color:#A8D8A8;line-height:1.7;">Host static websites <strong style="color:#FFA500;">for free</strong> directly from a repo. Perfect for portfolios and project demos!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 10: COMMANDS CHEAT SHEET -->
+    <div class="slide slide-10" data-slide="10">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:350px;height:350px;top:-80px;right:-60px;background:#00FF41;opacity:0.07;"></div>
+            <div class="blob" style="width:250px;height:250px;bottom:-50px;left:-40px;background:#FFA500;opacity:0.05;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// Quick Reference</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#00FF41;margin-bottom:1.1rem;">Essential Commands</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.9rem;">
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-radius:8px;padding:0.9rem;">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:#5A8A5A;margin-bottom:0.6rem;text-transform:uppercase;letter-spacing:2px;">Setup</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git config —global user.name</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git config —global user.email</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git init</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git clone &lt;url&gt;</div>
+                </div>
+                <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-radius:8px;padding:0.9rem;">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:#5A8A5A;margin-bottom:0.6rem;text-transform:uppercase;letter-spacing:2px;">Daily Work</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git status</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git add .</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git commit -m "message"</div>
+                    <div class="cmd-block"><span class="cmd-prefix">$ </span>git log —oneline</div>
+                </div>
+                <div class="reveal" style="background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.12);border-radius:8px;padding:0.9rem;">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:#5A8A5A;margin-bottom:0.6rem;text-transform:uppercase;letter-spacing:2px;">Remote & Branches</div>
+                    <div class="cmd-block" style="border-color:rgba(255,165,0,0.15);"><span class="cmd-prefix">$ </span>git push origin main</div>
+                    <div class="cmd-block" style="border-color:rgba(255,165,0,0.15);"><span class="cmd-prefix">$ </span>git pull</div>
+                    <div class="cmd-block" style="border-color:rgba(255,165,0,0.15);"><span class="cmd-prefix">$ </span>git checkout -b feature</div>
+                    <div class="cmd-block" style="border-color:rgba(255,165,0,0.15);"><span class="cmd-prefix">$ </span>git merge feature</div>
+                </div>
+            </div>
+            <div class="reveal" style="margin-top:0.9rem;display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+                <div style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.1);border-radius:8px;padding:0.7rem 1rem;font-size:0.75rem;color:#A8D8A8;">
+                    <i class="ph-duotone ph-arrows-clockwise"></i> <strong style="color:#00FF41;">git diff</strong> — see what changed before staging<br>
+                    <i class="ph-duotone ph-rewind"></i> <strong style="color:#00FF41;">git revert &lt;hash&gt;</strong> — undo a commit safely
+                </div>
+                <div style="background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.1);border-radius:8px;padding:0.7rem 1rem;font-size:0.75rem;color:#A8D8A8;">
+                    <i class="ph-duotone ph-package"></i> <strong style="color:#FFA500;">git stash</strong> — temporarily shelve changes<br>
+                    <i class="ph-duotone ph-tag"></i> <strong style="color:#FFA500;">git tag v1.0</strong> — mark important milestones
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 11: BEST PRACTICES -->
+    <div class="slide slide-11" data-slide="11">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:400px;height:400px;top:-80px;right:-60px;background:#00FF41;opacity:0.08;"></div>
+            <div class="blob" style="width:270px;height:270px;bottom:-60px;left:-40px;background:#FFA500;opacity:0.06;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// Write Pro-Level Code</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#00FF41;margin-bottom:1.2rem;">Best Practices</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;">
+                <div style="display:flex;flex-direction:column;gap:0.7rem;">
+                    <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.15);border-left:3px solid #00FF41;border-radius:8px;padding:0.8rem 1rem;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;font-weight:600;color:#00FF41;margin-bottom:0.2rem;"><i class="ph-duotone ph-check-circle"></i> Commit Often, Push Often</div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;">Small, focused commits are easier to review and revert. Don't wait days between commits.</div>
+                    </div>
+                    <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.15);border-left:3px solid #00CC33;border-radius:8px;padding:0.8rem 1rem;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;font-weight:600;color:#00FF41;margin-bottom:0.2rem;"><i class="ph-duotone ph-check-circle"></i> Write Meaningful Messages</div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;margin-bottom:0.4rem;">BAD: <span style="color:#FF6B6B;">git commit -m "fix"</span></div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;">GOOD: <span style="color:#00FF41;">git commit -m "fix: resolve login redirect bug"</span></div>
+                    </div>
+                    <div class="reveal" style="background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.15);border-left:3px solid #00FF41;border-radius:8px;padding:0.8rem 1rem;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;font-weight:600;color:#00FF41;margin-bottom:0.2rem;"><i class="ph-duotone ph-check-circle"></i> Always Use .gitignore</div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;">Never commit node_modules, .env files, API keys, or build artifacts. Add them to .gitignore.</div>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.7rem;">
+                    <div class="reveal" style="background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.15);border-left:3px solid #FFA500;border-radius:8px;padding:0.8rem 1rem;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;font-weight:600;color:#FFA500;margin-bottom:0.2rem;"><i class="ph-duotone ph-check-circle"></i> Use Feature Branches</div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;">One branch per feature or bug. Name clearly: <span style="color:#FFA500;">feature/user-auth</span>, <span style="color:#FFA500;">fix/nav-crash</span></div>
+                    </div>
+                    <div class="reveal" style="background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.15);border-left:3px solid #FFA500;border-radius:8px;padding:0.8rem 1rem;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;font-weight:600;color:#FFA500;margin-bottom:0.2rem;"><i class="ph-duotone ph-check-circle"></i> Always Write a README</div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;">Explain what your project does, how to install it, and how to contribute. It's your repo's homepage.</div>
+                    </div>
+                    <div class="reveal" style="background:rgba(255,0,0,0.05);border:1px solid rgba(255,0,0,0.15);border-left:3px solid #FF6B6B;border-radius:8px;padding:0.8rem 1rem;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;font-weight:600;color:#FF6B6B;margin-bottom:0.2rem;"><i class="ph-duotone ph-x-circle"></i> NEVER do git push --force</div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;">On shared branches, force-pushing can destroy teammates' work permanently.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 12: HANDS-ON -->
+    <div class="slide slide-12" data-slide="12">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:430px;height:430px;top:-100px;right:-80px;background:#00FF41;opacity:0.09;"></div>
+            <div class="blob" style="width:290px;height:290px;bottom:-60px;left:-50px;background:#FFA500;opacity:0.07;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <canvas class="particle-canvas-ambient" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="content">
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#5A8A5A;letter-spacing:4px;text-transform:uppercase;margin-bottom:0.5rem;">// Your First Push</p>
+            <h2 class="font-display font-bold reveal" style="font-size:clamp(1.8rem,3.5vw,2.4rem);color:#00FF41;margin-bottom:1.2rem;">Hands-On Exercise <i class="ph-duotone ph-rocket-launch"></i></h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;">
+                <div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:#5A8A5A;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:2px;" class="reveal">Step by Step</div>
+                    <div style="display:flex;flex-direction:column;gap:0.4rem;">
+                        <div class="reveal" style="display:flex;gap:0.7rem;align-items:flex-start;">
+                            <span style="background:#00FF41;color:#0A0A0A;font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:2px;">01</span>
+                            <div>
+                                <div class="cmd-block" style="margin-bottom:0;font-size:0.72rem;"><span class="cmd-prefix">$ </span>mkdir my-first-repo && cd my-first-repo</div>
+                                <div style="font-size:0.65rem;color:#5A8A5A;margin-top:2px;">Create project folder</div>
+                            </div>
+                        </div>
+                        <div class="reveal" style="display:flex;gap:0.7rem;align-items:flex-start;">
+                            <span style="background:#00FF41;color:#0A0A0A;font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:2px;">02</span>
+                            <div>
+                                <div class="cmd-block" style="margin-bottom:0;font-size:0.72rem;"><span class="cmd-prefix">$ </span>git init</div>
+                                <div style="font-size:0.65rem;color:#5A8A5A;margin-top:2px;">Initialize Git tracking</div>
+                            </div>
+                        </div>
+                        <div class="reveal" style="display:flex;gap:0.7rem;align-items:flex-start;">
+                            <span style="background:#00FF41;color:#0A0A0A;font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:2px;">03</span>
+                            <div>
+                                <div class="cmd-block" style="margin-bottom:0;font-size:0.72rem;"><span class="cmd-prefix">$ </span>echo "# Hello Git" > README.md</div>
+                                <div style="font-size:0.65rem;color:#5A8A5A;margin-top:2px;">Create a file</div>
+                            </div>
+                        </div>
+                        <div class="reveal" style="display:flex;gap:0.7rem;align-items:flex-start;">
+                            <span style="background:#00FF41;color:#0A0A0A;font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:2px;">04</span>
+                            <div>
+                                <div class="cmd-block" style="margin-bottom:0;font-size:0.72rem;"><span class="cmd-prefix">$ </span>git add . && git commit -m "init: first commit"</div>
+                                <div style="font-size:0.65rem;color:#5A8A5A;margin-top:2px;">Stage and commit</div>
+                            </div>
+                        </div>
+                        <div class="reveal" style="display:flex;gap:0.7rem;align-items:flex-start;">
+                            <span style="background:#FFA500;color:#0A0A0A;font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:2px;">05</span>
+                            <div>
+                                <div class="cmd-block" style="margin-bottom:0;font-size:0.72rem;border-color:rgba(255,165,0,0.2);"><span class="cmd-prefix">$ </span>git remote add origin &lt;github-url&gt;</div>
+                                <div class="cmd-block" style="margin-bottom:0;font-size:0.72rem;border-color:rgba(255,165,0,0.2);"><span class="cmd-prefix">$ </span>git push -u origin main</div>
+                                <div style="font-size:0.65rem;color:#5A8A5A;margin-top:2px;">Connect & push to GitHub <i class="ph-duotone ph-confetti"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0.8rem;">
+                    <div class="reveal" style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.2);border-radius:10px;padding:1rem;text-align:center;">
+                        <div style="font-size:2.5rem;margin-bottom:0.4rem;"><i class="ph-duotone ph-target"></i></div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:700;color:#00FF41;margin-bottom:0.3rem;">Goal</div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;">Push a real project to GitHub today. Employers <strong style="color:#00FF41;">check your GitHub profile</strong> — make it active!</div>
+                    </div>
+                    <div class="reveal" style="background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.12);border-radius:10px;padding:1rem;">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:600;color:#00FF41;margin-bottom:0.5rem;"><i class="ph-duotone ph-package"></i> Pre-requisites</div>
+                        <div style="font-size:0.75rem;color:#A8D8A8;line-height:1.8;">
+                            <i class="ph-duotone ph-check-circle"></i> Git installed (git —version)<br>
+                            <i class="ph-duotone ph-check-circle"></i> GitHub account created<br>
+                            <i class="ph-duotone ph-check-circle"></i> SSH key or HTTPS token setup<br>
+                            <i class="ph-duotone ph-check-circle"></i> VS Code / any text editor
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 13: THANK YOU -->
+    <div class="slide slide-13" data-slide="13">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:500px;height:500px;top:-100px;right:-100px;background:#00FF41;opacity:0.12;"></div>
+            <div class="blob" style="width:350px;height:350px;bottom:-80px;left:-60px;background:#00CC33;opacity:0.09;"></div>
+            <div class="blob" style="width:220px;height:220px;top:35%;left:12%;background:#FFA500;opacity:0.08;"></div>
+        </div>
+        <canvas class="particle-canvas" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="scanlines"></div>
+        <div class="content text-center">
+            <div style="font-size:80px;margin-bottom:0.8rem;animation:float 3s ease-in-out infinite;" class="reveal"><i class="ph-duotone ph-git-branch"></i></div>
+            <h2 class="font-display font-black reveal glow-pulse" style="font-size:clamp(2.5rem,6vw,4.5rem);background:linear-gradient(135deg,#00FF41,#A8D8A8,#00FF41);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.8rem;">
+                You're Ready to Ship
+            </h2>
+            <p class="reveal" style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#5A8A5A;letter-spacing:5px;text-transform:uppercase;margin-bottom:1.5rem;">Any Questions? Let's discuss.</p>
+
+            <!-- Speaker Profile Card -->
+            <div class="reveal" style="margin: 0 auto 1.5rem auto; display:flex; align-items:center; justify-content:center; gap:1.2rem; background:rgba(0,255,65,0.03); border:1px solid rgba(0,255,65,0.15); border-radius:100px; padding:0.6rem 2rem 0.6rem 0.6rem; width: max-content; backdrop-filter: blur(5px);">
+                <img src="https://avatars.githubusercontent.com/u/183180575" alt="Speaker" style="width:75px; height:75px; border-radius:50%; object-fit:cover; border:2px solid rgba(0,255,65,0.4); box-shadow: 0 0 20px rgba(0,255,65,0.2);">
+                <div style="text-align:left;">
+                    <div style="font-size:1.1rem; font-weight:700; color:#E8FFE8; margin-bottom:0.2rem;">Jyotirmoy Das</div>
+                    <div style="display:flex; gap:1rem; font-family:'JetBrains Mono',monospace;">
+                        <a href="https://github.com/JyotirmoyDas05" style="font-size:0.75rem; color:#A8D8A8; text-decoration:none; display:flex; align-items:center; gap:0.4rem; transition:color 0.3s;" onmouseover="this.style.color='#00FF41'" onmouseout="this.style.color='#A8D8A8'"><i class="ph-duotone ph-github-logo" style="font-size:1.1rem;"></i> @JyotirmoyDas05</a>
+                        <a href="https://www.linkedin.com/in/jyotimoydas/" style="font-size:0.75rem; color:#A8D8A8; text-decoration:none; display:flex; align-items:center; gap:0.4rem; transition:color 0.3s;" onmouseover="this.style.color='#00FF41'" onmouseout="this.style.color='#A8D8A8'"><i class="ph-duotone ph-linkedin-logo" style="font-size:1.1rem;"></i> /in/jyotimoydas</a>
+                        <a href="https://x.com/JyotirmoyDas05" style="font-size:0.75rem; color:#A8D8A8; text-decoration:none; display:flex; align-items:center; gap:0.4rem; transition:color 0.3s;" onmouseover="this.style.color='#00FF41'" onmouseout="this.style.color='#A8D8A8'"><i class="ph-duotone ph-x-logo" style="font-size:1.1rem;"></i> @JyotirmoyDas05</a>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;" class="reveal">
+                <div style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.2);border-radius:999px;padding:0.5rem 1.4rem;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#A8D8A8;">
+                    <i class="ph-duotone ph-link"></i> github.com
+                </div>
+                <div style="background:rgba(0,255,65,0.06);border:1px solid rgba(0,255,65,0.2);border-radius:999px;padding:0.5rem 1.4rem;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#A8D8A8;">
+                    <i class="ph-duotone ph-books"></i> git-scm.com/docs
+                </div>
+                <div style="background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.2);border-radius:999px;padding:0.5rem 1.4rem;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#A8D8A8;">
+                    <i class="ph-duotone ph-game-controller"></i> learngitbranching.js.org
+                </div>
+            </div>
+            <div class="reveal" style="margin-top:1.2rem;display:inline-flex;align-items:center;gap:0.5rem;background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.15);border-radius:8px;padding:0.6rem 1.2rem;">
+                <span style="font-family:'JetBrains Mono',monospace;color:#5A8A5A;font-size:0.8rem;">$</span>
+                <span style="font-family:'JetBrains Mono',monospace;color:#A8D8A8;font-size:0.82rem;">git commit -m "start: my open source journey"</span>
+                <span class="cursor"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 14: GDG CHALLENGE -->
+    <div class="slide slide-14" data-slide="14">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:400px;height:400px;top:-60px;right:-80px;background:#FFA500;opacity:0.1;"></div>
+            <div class="blob" style="width:300px;height:300px;bottom:-80px;left:-60px;background:#00FF41;opacity:0.08;"></div>
+        </div>
+        <div class="scanlines"></div>
+        <div style="position:relative; z-index:2; width:100vw; height:100vh; display:flex; justify-content:center; align-items:center; padding-bottom: 80px;">
+            <img class="reveal" src="GDG_Chal.jpg" alt="GDG Challenge" style="width:100%; height:100%; object-fit:contain; display:block;">
+        </div>
+    </div>
+
+</div>
+
+<!-- NAVIGATION -->
+<div class="nav-controls">
+    <button class="nav-btn" onclick="changeSlide(-1)">&#8249;</button>
+    <div class="slide-dots" id="dots"></div>
+    <button class="nav-btn" onclick="changeSlide(1)">&#8250;</button>
+    <span class="slide-counter" id="counter">1 / 14</span>
+</div>
+
+<script>
+    let current = 1;
+    const total = document.querySelectorAll('.slide').length;
+    const dotsContainer = document.getElementById('dots');
+    const counter = document.getElementById('counter');
+    for (let i = 1; i <= total; i++) { const dot = document.createElement('div'); dot.className = 'dot' + (i === 1 ? ' active' : ''); dot.onclick = () => goToSlide(i); dotsContainer.appendChild(dot); }
+    function goToSlide(n) {
+        const prev = document.querySelector('.slide.active');
+        const next = document.querySelector(`.slide[data-slide="${n}"]`);
+        if (prev) prev.classList.remove('active');
+        if (next) { next.classList.add('active'); animateSlide(next); }
+        current = n; updateNav();
+    }
+    function changeSlide(dir) { let next = current + dir; if (next < 1) next = total; if (next > total) next = 1; goToSlide(next); }
+    function updateNav() { document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === current); }); counter.textContent = current + ' / ' + total; }
+    document.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); changeSlide(1); } if (e.key === 'ArrowLeft') { e.preventDefault(); changeSlide(-1); } });
+    let touchStartX = 0;
+    document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+    document.addEventListener('touchend', (e) => { const diff = touchStartX - e.changedTouches[0].clientX; if (Math.abs(diff) > 50) changeSlide(diff > 0 ? 1 : -1); });
+
+    function animateSlide(slide) {
+        slide.querySelectorAll('.reveal').forEach((el, i) => {
+            el.style.transition = 'none'; el.style.opacity = '0'; el.style.transform = 'translateY(20px)';
+            el.offsetHeight;
+            const delay = i * 0.08;
+            el.style.transition = `opacity 0.35s ease ${delay}s, transform 0.35s ease ${delay}s`;
+            el.style.opacity = '1'; el.style.transform = 'translateY(0px)';
+        });
+        animateSlideEffects(slide);
+    }
+
+    function animateSlideEffects(slide) {
+        slide.querySelectorAll('[data-count]:not(.counted)').forEach(el => {
+            el.classList.add('counted');
+            const target = parseInt(el.dataset.count);
+            const suffix = el.dataset.suffix || '', prefix = el.dataset.prefix || '';
+            let cur = 0; const step = target / 40;
+            const timer = setInterval(() => { cur += step; if (cur >= target) { cur = target; clearInterval(timer); } el.textContent = prefix + Math.round(cur).toLocaleString() + suffix; }, 30);
+        });
+        slide.querySelectorAll('.bar-fill:not(.fill-init)').forEach((bar, i) => {
+            bar.classList.add('fill-init');
+            bar.style.width = '0%'; bar.style.transition = `width 0.6s ease ${i * 0.1}s`; bar.offsetHeight; bar.style.width = bar.dataset.width + '%';
+        });
+    }
+
+    /* Mouse Spotlight */
+    document.addEventListener('mousemove', (e) => {
+        const spotlight = document.querySelector('.mouse-spotlight');
+        if (spotlight) { spotlight.style.background = `radial-gradient(600px circle at ${e.clientX}px ${e.clientY}px, rgba(0,255,65,0.05), transparent 40%)`; }
+    });
+
+    /* Parallax deco shapes */
+    (function() {
+        let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+        const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+        document.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+        (function tick() {
+            const ox = (mouseX - cx) / cx, oy = (mouseY - cy) / cy;
+            document.querySelectorAll('.deco-shape').forEach(shape => {
+                const speed = parseFloat(shape.dataset.speed) || 0.03;
+                shape.style.transform = `translate(${ox * speed * 100}px, ${oy * speed * 100}px)`;
+            });
+            requestAnimationFrame(tick);
+        })();
+    })();
+
+    /* Particle Canvas */
+    window.initParticles = function(canvas, options) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        const interactive = options.interactive !== false;
+        const count = options.count || (interactive ? 55 : 18);
+        let mx = -1000, my = -1000;
+        const particles = Array.from({ length: count }, () => ({
+            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+            size: Math.random() * 2.2 + 0.6, alpha: Math.random() * 0.3 + 0.08
+        }));
+        if (interactive) {
+            canvas.addEventListener('mousemove', (e) => { const rect = canvas.getBoundingClientRect(); mx = e.clientX - rect.left; my = e.clientY - rect.top; });
+            canvas.addEventListener('mouseleave', () => { mx = -1000; my = -1000; });
+        }
+        (function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                if (interactive) { const dx = p.x - mx, dy = p.y - my, dist = Math.sqrt(dx * dx + dy * dy); if (dist < 120) { const force = (120 - dist) / 120 * 2; p.vx += (dx / dist) * force * 0.1; p.vy += (dy / dist) * force * 0.1; } }
+                p.vx *= 0.98; p.vy *= 0.98; p.x += p.vx; p.y += p.vy;
+                if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0,255,65,${p.alpha})`; ctx.fill();
+            });
+            requestAnimationFrame(animate);
+        })();
+    };
+    document.querySelectorAll('.particle-canvas').forEach(c => window.initParticles(c, { interactive: true, count: 55 }));
+    document.querySelectorAll('.particle-canvas-ambient').forEach(c => window.initParticles(c, { interactive: false, count: 18 }));
+
+    try { animateSlide(document.querySelector('.slide.active')); } catch(e) { console.warn('Initial animation error:', e); }
+</script>
+</body>
+</html>
